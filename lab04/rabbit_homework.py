@@ -12,6 +12,73 @@ fileLocation = os.path.dirname(os.path.abspath(__file__))
 skillIssue: bool = False
 TIME_LIMIT = 30
 
+class Perception_Line:
+	def __init__(self):
+		self.x = 0
+		self.y = 0
+		self.w = 0
+		self.h = 0
+		self.angle = 0
+		self.arrow = QPixmap(f"{fileLocation}/images/rabbit.png")
+		self.arrow = self.arrow.scaled(self.w, self.h)
+		self.arrow = self.arrow.transformed(QTransform().rotate(self.angle))
+		
+		
+	def draw(self, p):
+		p.drawPixmap(QRect(self.x, self.y, self.w, self.h), self.arrow)
+		
+	def set_pos(self, x, y):
+		self.x = x
+		self.y = y
+	
+	def set_angle(self, angle):
+		self.angle = angle
+		self.arrow = self.arrow.transformed(QTransform().rotate(self.angle))
+		
+	def set_size(self, w, h):
+		self.w = w
+		self.h = h
+		self.arrow = self.arrow.scaled(self.w, self.h)
+		self.arrow = self.arrow.transformed(QTransform().rotate(self.angle))
+		
+	def set_pos_and_angle(self, x, y, angle):
+		self.set_pos(x, y)
+		self.set_angle(angle)
+
+
+
+	
+	
+	
+	
+
+class Predicted_Rabbit:
+	def __init__(self):
+		self.rabbit = QPixmap(f"{fileLocation}/images/predict_rabbit.png")
+		self.current_x = 0
+		self.current_y = 0
+		self.past_x = 0
+		self.past_y = 0
+		self.w = 40
+		self.h = 40
+		
+		if skillIssue:
+			self.w *= 3
+			self.h *= 3
+			
+	def draw(self, p):
+		p.drawPixmap(QRect(self.current_x, self.current_y, self.w, self.h), self.rabbit)
+		
+	def set_pos(self, x, y):
+		self.current_x = x
+		self.current_y = y
+		
+	def random_pos(self, arena_w, arena_h):
+		self.past_x = self.current_x
+		self.past_y = self.current_y
+		self.current_x = random.randint(0, arena_w - self.w)
+		self.current_y = random.randint(0, arena_h - self.h)
+
 class Rabbit:
 	def __init__(self):
 		self.rabbit = QPixmap(f"{fileLocation}/images/rabbit.png")
@@ -21,8 +88,8 @@ class Rabbit:
 		self.h = 40
 
 		if skillIssue:
-			self.w *= 4
-			self.h *= 4
+			self.w *= 3
+			self.h *= 3
 
 	def draw(self, p):
 		p.drawPixmap(QRect(self.x, self.y, self.w, self.h), self.rabbit)
@@ -30,6 +97,10 @@ class Rabbit:
 	def random_pos(self, arena_w, arena_h):
 		self.x = random.randint(0, arena_w - self.w)
 		self.y = random.randint(0, arena_h - self.h)
+	
+	def set_pos(self, x, y):
+		self.x = x
+		self.y = y
 
 	def is_hit(self, mouse_x, mouse_y):
 		return mouse_x >= self.x and mouse_x <= self.x + self.w and mouse_y >= self.y and mouse_y <= self.y + self.h
@@ -41,9 +112,12 @@ class Animation_area(QWidget):
 		self.arena_w = 300
 		self.arena_h = 300
 		self.rabbit = Rabbit()
+		self.predicted_rabbit = Predicted_Rabbit()
+		self.perception_line = Perception_Line()
 		self.score = 0
 		self.time_limit = TIME_LIMIT
 		self.lives = 3
+		self.highscore = 0
 		
 		self.score_label = QLabel(f"Score: {self.score}", self)
 		self.score_label.setFont(QFont("Arial", 16))
@@ -58,10 +132,10 @@ class Animation_area(QWidget):
 		self.timer_label.setFixedWidth(100)
 		self.lives_label.setFixedWidth(100)
 
-
-		self.game_over_label = QLabel(f"Game Over!", self)
+		self.game_over_label = QLabel(f"Game Over!\nHighscore:{self.highscore}", self)
+		
 		self.game_over_label.setFont(QFont("Arial", 30))
-		self.game_over_label.move(45, 150)
+		self.game_over_label.move(45, 250)
 		self.game_over_label.hide()
 		
 		self.layout = QVBoxLayout()
@@ -74,9 +148,6 @@ class Animation_area(QWidget):
 		self.death_timer = QTimer(self)
 		self.death_timer.timeout.connect(self.check_time)
 		self.death_timer.start(1000)
-
-		
-
 
 		self.QSH = QSoundEffect()
 		self.QSH.setSource(QUrl.fromLocalFile(f"{fileLocation}/sounds/rabbit_hit.wav"))
@@ -115,10 +186,14 @@ class Animation_area(QWidget):
 		p = QPainter()
 		p.begin(self)
 		self.rabbit.draw(p)
+		self.predicted_rabbit.draw(p)
+		#self.perception_line.draw(p)
 		p.end()
 
 	def update_value(self):
-		self.rabbit.random_pos(self.arena_w, self.arena_h)
+		self.predicted_rabbit.random_pos(self.arena_w, self.arena_h)
+		self.rabbit.set_pos(self.predicted_rabbit.past_x, self.predicted_rabbit.past_y)
+		#self.perception_line.set_pos_and_angle(self.rabbit.x, self.rabbit.y, 0)	
 		self.update()
 		
 	def check_time(self):
@@ -135,6 +210,10 @@ class Animation_area(QWidget):
 		self.lives_label.setText(f"Lives: {self.lives}")
 		self.QSM.play()
 		self.update()
+		if self.score > self.highscore:
+			self.highscore = self.score
+		
+		self.game_over_label.setText(f"Game Over!\nHighscore:{self.highscore}")
 
 		self.game_over_label.show()
 
@@ -154,6 +233,7 @@ class Animation_area(QWidget):
 		self.lives_label.setText(f"Lives: {self.lives}")
 		self.QSM.play()
 		self.update()
+		self.highscore = self.score
 
 		self.game_over_label.setText("You Win!")
 		self.game_over_label.show()
@@ -192,7 +272,7 @@ class StartMenu(QWidget):
 	def __init__(self):
 		QWidget.__init__(self, None)
 		self.setMinimumSize(300, 300)
-		self.setWindowTitle("Rabbit Game")
+		self.setWindowTitle("Ultra Rapid Rabbit")
 		self.layout = QVBoxLayout()
 		self.start_button = QPushButton("Start", self)
 		self.start_button.move(120, 200)
@@ -218,7 +298,6 @@ class StartMenu(QWidget):
 		self.anim_area = Simple_animation_window()
 		self.layout.addWidget(self.anim_area)
 		self.anim_area.show()
-		
 
 def main():
 	app = QApplication(sys.argv)
